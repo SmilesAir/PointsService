@@ -26,6 +26,8 @@ module.exports.downloadPlayerAndEventData = function() {
             MainStore.cachedDisplayNames.push(playerData.firstName.toLowerCase() + "_" + playerData.lastName.toLowerCase())
         }
 
+        ++MainStore.initCount
+
         console.log("playerData", data)
     }).catch((error) => {
         console.error(`Failed to download Player data: ${error}`)
@@ -38,6 +40,8 @@ module.exports.downloadPlayerAndEventData = function() {
         }
     }).then((data) => {
         MainStore.eventData = data.allEventSummaryData
+
+        ++MainStore.initCount
 
         console.log("eventData", data)
     }).catch((error) => {
@@ -63,21 +67,41 @@ module.exports.downloadPlayerAndEventData = function() {
             return a.createdAt - b.createdAt
         })
 
+        ++MainStore.initCount
+
         console.log("resultsData", JSON.parse(JSON.stringify(MainStore.sortedResultsData)))
     }).catch((error) => {
         console.error(`Failed to download Results data: ${error}`)
     })
 }
 
-module.exports.generatePoolsRankingPointsArray = function(numPlayers, kFactor, bonus) {
+module.exports.generatePoolsRankingPointsArray = function(numPlayers, numPlaces, kFactor, bonus) {
     let topScore = numPlayers * kFactor + (bonus || 0)
-    let places = Math.ceil(Math.pow(numPlayers, 1 / 2))
-    let base = Math.pow(topScore, 1 / (places - 1))
+    let base = Math.pow(topScore, 1 / (numPlaces - 1))
 
     let pointsArray = []
-    for (let i = 0; i < places; ++i) {
+    for (let i = 0; i < numPlaces; ++i) {
         pointsArray.splice(0, 0, Math.round(topScore / Math.pow(base, i) * 10) / 10)
     }
 
     return pointsArray
+}
+
+module.exports.getSortedEventData = function(startTime, endTime) {
+    let sortedEventData = []
+    for (let eventId in MainStore.eventData) {
+        let eventData = MainStore.eventData[eventId]
+        if (startTime !== undefined && endTime !== undefined) {
+            let eventTime = Date.parse(eventData.startDate)
+            if (eventTime < startTime || eventTime > endTime) {
+                continue
+            }
+        }
+
+        sortedEventData.push(eventData)
+    }
+
+    return sortedEventData.sort((a, b) => {
+        return Date.parse(a.startDate) - Date.parse(b.startDate)
+    })
 }

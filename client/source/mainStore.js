@@ -6,5 +6,7 @@ module.exports = Mobx.observable({
     playerData: {},
     eventData: {},
     resultsData: {},
-    sortedResultsData: []
+    sortedResultsData: [],
+    initCount: 0,
+    isRatingCalcEnabled: false
 })

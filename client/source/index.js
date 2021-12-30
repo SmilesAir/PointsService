@@ -1,3 +1,4 @@
+/* eslint-disable no-nested-ternary */
 "use strict"
 
 const React = require("react")
@@ -10,13 +11,19 @@ const Common = require("common.js")
 require("./index.less")
 
 const globalKFactor = 5
+const ratingKFactor = 32
+const startingElo = 400
+const topRankingResultsCount = 8
 
 @MobxReact.observer class Main extends React.Component {
     constructor() {
         super()
 
         this.state = {
-            rankingsOutput: ""
+            playerRatings: {},
+            playerRankings: {},
+            startTime: Date.parse("2017-1-1"),
+            endTime: Number.MAX_VALUE
         }
 
         Common.downloadPlayerAndEventData()
@@ -40,16 +47,46 @@ const globalKFactor = 5
     }
 
     getRankingsOutput() {
-
-        let playerResults = []
-
-        if (MainStore.sortedResultsData < 1) {
+        if (MainStore.initCount < 3) {
             return ""
         }
-        let resultsData = MainStore.sortedResultsData[0]
+
+        let sortedEventData = Common.getSortedEventData(this.state.startTime, this.state.endTime)
+        for (let eventData of sortedEventData) {
+            let resultsDataList = MainStore.sortedResultsData.filter((data) => data.eventId === eventData.key)
+            for (let resultsData of resultsDataList) {
+                this.calcResultsRanking(resultsData.resultsData)
+            }
+        }
+
+        let rankingsString = ""
+        let sortedRankingList = []
+        for (let playerKey in this.state.playerRankings) {
+            let rankingData = this.state.playerRankings[playerKey]
+            rankingData.pointsList = rankingData.pointsList.sort((a, b) => {
+                return b - a
+            })
+            rankingData.points = rankingData.pointsList.slice(0, topRankingResultsCount).reduce((a, b) => a + b)
+            sortedRankingList.push(rankingData)
+        }
+
+        sortedRankingList = sortedRankingList.sort((a, b) => {
+            return b.points - a.points
+        })
+
+        let place = 1
+        for (let rankingData of sortedRankingList) {
+            rankingsString += `${place++}\t${rankingData.fullName}\t${Math.round(rankingData.points)}\t${rankingData.resultsCount}\t${Math.round(rankingData.points / rankingData.resultsCount)}\n`
+        }
+
+        return rankingsString
+    }
+
+    calcResultsRanking(resultsData) {
+        let playerResults = []
 
         let roundIds = []
-        for (let roundId in resultsData.resultsData) {
+        for (let roundId in resultsData) {
             if (roundId.startsWith("round")) {
                 roundIds.push(roundId)
             }
@@ -57,11 +94,13 @@ const globalKFactor = 5
 
         // Can't handle more than 9 rounds
         roundIds = roundIds.sort((a, b) => {
-            return a < b
+            return a - b
         })
 
+        let hashObj = {}
+        let placeCount = 0
         for (let roundId of roundIds) {
-            let roundData = resultsData.resultsData[roundId]
+            let roundData = resultsData[roundId]
             for (let poolId in roundData) {
                 if (poolId.startsWith("pool")) {
                     let poolData = roundData[poolId]
@@ -75,6 +114,11 @@ const globalKFactor = 5
                                 }
                                 result.hash = result.round * 1000 + result.place
                                 playerResults.push(result)
+
+                                if (hashObj[result.hash] === undefined) {
+                                    hashObj[result.hash] = result.hash
+                                    ++placeCount
+                                }
                             }
                         }
                     }
@@ -82,11 +126,13 @@ const globalKFactor = 5
             }
         }
 
-        let pointsArray = Common.generatePoolsRankingPointsArray(playerResults.length, globalKFactor)
-        console.log(pointsArray)
+        playerResults = playerResults.sort((a, b) => {
+            return a.hash - b.hash
+        })
 
-        let rankingsString = ""
         if (playerResults.length > 0) {
+            let pointsArray = Common.generatePoolsRankingPointsArray(playerResults.length, placeCount, globalKFactor)
+
             let pointsArrayIndex = pointsArray.length - 1
             let currentHash = playerResults[0].hash
             for (let player of playerResults) {
@@ -95,11 +141,173 @@ const globalKFactor = 5
                     currentHash = player.hash
                 }
 
-                rankingsString += `${MainStore.playerData[player.id].firstName} ${player.round} ${player.place} ${pointsArray[pointsArrayIndex]}\n`
+                let playerData = MainStore.playerData[player.id]
+                let rankingData = this.state.playerRankings[player.id]
+                if (rankingData !== undefined) {
+                    rankingData.pointsList.push(pointsArray[pointsArrayIndex])
+                    ++rankingData.resultsCount
+                } else {
+                    this.state.playerRankings[player.id] = {
+                        fullName: playerData.firstName + " " + playerData.lastName,
+                        pointsList: [ pointsArray[pointsArrayIndex] ],
+                        resultsCount: 1
+                    }
+                }
+
+                if (playerData.lastName === "Finner") {
+                    let eventData = MainStore.eventData[resultsData.eventId]
+                    console.log(eventData.eventName, currentHash, pointsArray[pointsArrayIndex])
+                }
+            }
+        }
+    }
+
+    getRatingsOutput() {
+        if (MainStore.isRatingCalcEnabled !== true) {
+            return ""
+        }
+
+        if (MainStore.initCount < 3) {
+            return ""
+        }
+
+        let sortedEventData = Common.getSortedEventData()
+
+        for (let eventData of sortedEventData) {
+            let resultsDataList = MainStore.sortedResultsData.filter((data) => data.eventId === eventData.key)
+            for (let resultsData of resultsDataList) {
+                this.calcResultsElo(resultsData)
             }
         }
 
-        return rankingsString
+        let sortedRatingData = []
+        for (let playerId in this.state.playerRatings) {
+            sortedRatingData.push(this.state.playerRatings[playerId])
+        }
+
+        sortedRatingData = sortedRatingData.sort((a, b) => {
+            return b.rating - a.rating
+        })
+
+        let outText = ""
+        let place = 1
+        for (let player of sortedRatingData) {
+            outText += `${place}.\t${player.fullName}\t${Math.round(player.rating)}\t${player.matchCount}\n`
+            ++place
+        }
+
+        return outText
+    }
+
+    calcResultsElo(resultsData) {
+        let roundIds = []
+        for (let roundId in resultsData.resultsData) {
+            if (roundId.startsWith("round")) {
+                roundIds.push(roundId)
+            }
+        }
+
+        // Can't handle more than 9 rounds
+        roundIds = roundIds.sort((a, b) => {
+            return a - b
+        })
+
+        let teamsData = []
+        for (let roundId of roundIds) {
+            let roundData = resultsData.resultsData[roundId]
+            for (let poolId in roundData) {
+                if (poolId.startsWith("pool")) {
+                    let poolData = roundData[poolId]
+                    for (let teamData of poolData.teamData) {
+                        let hash = teamData.players.join(",")
+                        if (teamsData.find((data) => data.hash === hash) === undefined) {
+                            teamsData.push({
+                                place: teamData.place + 1000 * parseInt(roundId.replace("round", ""), 10),
+                                players: teamData.players.slice(),
+                                hash: hash
+                            })
+                        }
+                    }
+                }
+            }
+        }
+
+        teamsData = teamsData.sort((a, b) => {
+            return a.place - b.place
+        })
+
+        for (let winnerIndex = 0; winnerIndex < teamsData.length; ++winnerIndex) {
+            let winner = teamsData[winnerIndex]
+            for (let loserIndex = winnerIndex + 1; loserIndex < teamsData.length; ++loserIndex) {
+                let loser = teamsData[loserIndex]
+                this.calcTeamRating(winner, loser, winner.place < loser.place ? -1 : 0)
+            }
+        }
+    }
+
+    calcTeamRating(team1, team2, result) {
+        let rating1 = this.calcTeamElo(team1)
+        let rating2 = this.calcTeamElo(team2)
+
+        let ratingResults = this.calcEloMatch(rating1, rating2, result)
+        let team1Delta = ratingResults.rating1 - rating1
+        let team2Delta = ratingResults.rating2 - rating2
+
+        this.updateTeamRatings(team1, rating1, team1Delta)
+        this.updateTeamRatings(team2, rating2, team2Delta)
+    }
+
+    updateTeamRatings(team, originalRating, delta) {
+        for (let playerId of team.players) {
+            let ratingData = this.state.playerRatings[playerId]
+            let rating = ratingData && ratingData.rating || startingElo
+            let weight = rating / originalRating / team.players.length
+
+            if (ratingData !== undefined) {
+                ratingData.rating += weight * delta
+                ++ratingData.matchCount
+            } else {
+                let playerData = MainStore.playerData[playerId]
+                this.state.playerRatings[playerId] = {
+                    fullName: playerData.firstName + " " + playerData.lastName,
+                    rating: startingElo + weight * delta,
+                    matchCount: 1
+                }
+            }
+        }
+    }
+
+    calcTeamElo(team) {
+        let elo = 0
+        for (let playerId of team.players) {
+            let player = this.state.playerRatings[playerId]
+            if (player !== undefined) {
+                elo += player.rating
+            } else {
+                elo += startingElo
+            }
+        }
+
+        return elo / team.players.length
+    }
+
+    calcEloMatch(rating1, rating2, result) {
+        // -1 means player1 won, 1 means player2 won, 0 means draw
+        let r1 = Math.pow(10, rating1 / 400)
+        let r2 = Math.pow(10, rating2 / 400)
+        let e1 = r1 / (r1 + r2)
+        let e2 = r2 / (r1 + r2)
+        let s1 = result === 0 ? .5 : result > 0 ? 0 : 1
+        let s2 = result === 0 ? .5 : result > 0 ? 1 : 0
+
+        return {
+            rating1: rating1 + ratingKFactor * (s1 - e1),
+            rating2: rating2 + ratingKFactor * (s2 - e2)
+        }
+    }
+
+    enableRatings() {
+        MainStore.isRatingCalcEnabled = true
     }
 
     render() {
@@ -119,6 +327,8 @@ const globalKFactor = 5
                     <h1>
                         Ratings
                     </h1>
+                    { MainStore.isRatingCalcEnabled ? null : <button onClick={(e) => this.enableRatings(e)}>Enable Ratings</button> }
+                    <textarea value={this.getRatingsOutput()} cols={50} rows={20} readOnly={true} />
                 </div>
             </div>
         )
