@@ -22,13 +22,15 @@ const topRankingResultsCount = 8
         this.state = {
             playerRatings: {},
             playerRankings: {},
-            startTime: Date.parse("2017-1-1"),
+            startTime: Date.parse("2018-1-1"),
             endTime: Number.MAX_VALUE
         }
 
         Common.downloadPlayerAndEventData()
 
         //console.log(Common.generatePoolsRankingPointsArray(30, 5))
+        // console.log(Common.generatePoolsRankingPointsArray(20, 9, globalKFactor))
+        // console.log(Common.generatePoolsRankingPointsArray(70, 24, globalKFactor))
     }
 
     getEventWidgets() {
@@ -154,10 +156,10 @@ const topRankingResultsCount = 8
                     }
                 }
 
-                if (playerData.lastName === "Finner") {
-                    let eventData = MainStore.eventData[resultsData.eventId]
-                    console.log(eventData.eventName, currentHash, pointsArray[pointsArrayIndex])
-                }
+                // if (playerData.lastName === "Finner") {
+                //     let eventData = MainStore.eventData[resultsData.eventId]
+                //     console.log(eventData.eventName, currentHash, pointsArray[pointsArrayIndex])
+                // }
             }
         }
     }
@@ -236,11 +238,16 @@ const topRankingResultsCount = 8
             return a.place - b.place
         })
 
+        let lastHash = null
         for (let winnerIndex = 0; winnerIndex < teamsData.length; ++winnerIndex) {
             let winner = teamsData[winnerIndex]
             for (let loserIndex = winnerIndex + 1; loserIndex < teamsData.length; ++loserIndex) {
                 let loser = teamsData[loserIndex]
-                this.calcTeamRating(winner, loser, winner.place < loser.place ? -1 : 0)
+                let isTie = winner.place === loser.place
+                if (!isTie || lastHash !== loser.hash) {
+                    this.calcTeamRating(winner, loser, isTie ? 0 : -1)
+                    lastHash = loser.hash
+                }
             }
         }
     }
