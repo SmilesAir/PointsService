@@ -156,7 +156,7 @@ const topRankingResultsCount = 8
                     }
                 }
 
-                // if (playerData.lastName === "Finner") {
+                // if (playerData.lastName === "Korver") {
                 //     let eventData = MainStore.eventData[resultsData.eventId]
                 //     console.log(eventData.eventName, currentHash, pointsArray[pointsArrayIndex])
                 // }
@@ -174,11 +174,12 @@ const topRankingResultsCount = 8
         }
 
         let sortedEventData = Common.getSortedEventData()
+        //console.log(JSON.parse(JSON.stringify(sortedEventData)))
 
         for (let eventData of sortedEventData) {
             let resultsDataList = MainStore.sortedResultsData.filter((data) => data.eventId === eventData.key)
             for (let resultsData of resultsDataList) {
-                this.calcResultsElo(resultsData)
+                this.calcResultsElo(resultsData, eventData.startDate)
             }
         }
 
@@ -194,14 +195,14 @@ const topRankingResultsCount = 8
         let outText = ""
         let place = 1
         for (let player of sortedRatingData) {
-            outText += `${place}.\t${player.fullName}\t${Math.round(player.rating)}\t${player.matchCount}\n`
+            outText += `${place}.\t${player.fullName}\t${Math.round(player.rating)}\t${player.matchCount}\t${Math.round(player.highestRating)}\t${player.highestRatingDate}\t${player.highestRank}\t${player.highestRankDate}\n`
             ++place
         }
 
         return outText
     }
 
-    calcResultsElo(resultsData) {
+    calcResultsElo(resultsData, startDate) {
         let roundIds = []
         for (let roundId in resultsData.resultsData) {
             if (roundId.startsWith("round")) {
@@ -245,14 +246,32 @@ const topRankingResultsCount = 8
                 let loser = teamsData[loserIndex]
                 let isTie = winner.place === loser.place
                 if (!isTie || lastHash !== loser.hash) {
-                    this.calcTeamRating(winner, loser, isTie ? 0 : -1)
+                    this.calcTeamRating(winner, loser, isTie ? 0 : -1, startDate)
                     lastHash = loser.hash
                 }
             }
         }
+
+        let sortedPlayerRatings = []
+        for (let playerId in this.state.playerRatings) {
+            sortedPlayerRatings.push(this.state.playerRatings[playerId])
+        }
+
+        sortedPlayerRatings = sortedPlayerRatings.sort((a, b) => {
+            return b.rating - a.rating
+        })
+
+        for (let i = 0; i < sortedPlayerRatings.length; ++i) {
+            let rank = i + 1
+            let player = sortedPlayerRatings[i]
+            if (player.matchCount > 100 && (player.highestRank < 0 || rank < player.highestRank)) {
+                player.highestRank = rank
+                player.highestRankDate = startDate
+            }
+        }
     }
 
-    calcTeamRating(team1, team2, result) {
+    calcTeamRating(team1, team2, result, startDate) {
         let rating1 = this.calcTeamElo(team1)
         let rating2 = this.calcTeamElo(team2)
 
@@ -260,11 +279,42 @@ const topRankingResultsCount = 8
         let team1Delta = ratingResults.rating1 - rating1
         let team2Delta = ratingResults.rating2 - rating2
 
-        this.updateTeamRatings(team1, rating1, team1Delta)
-        this.updateTeamRatings(team2, rating2, team2Delta)
+        let found = team1.players.find((playerId) => {
+            let playerData = MainStore.playerData[playerId]
+            return playerData.lastName === "Damiano"
+        })
+        if (!found) {
+            found = team2.players.find((playerId) => {
+                let playerData = MainStore.playerData[playerId]
+                return playerData.lastName === "Damiano"
+            })
+        }
+        if (found) {
+            let out = ""
+            for (let playerId of team1.players) {
+                let playerData = MainStore.playerData[playerId]
+                let ratingData = this.state.playerRatings[playerId]
+                let rating = ratingData && ratingData.rating || startingElo
+                out += `${playerData.firstName} ${rating} `
+            }
+            out += " vs  "
+            for (let playerId of team2.players) {
+                let playerData = MainStore.playerData[playerId]
+                let ratingData = this.state.playerRatings[playerId]
+                let rating = ratingData && ratingData.rating || startingElo
+                out += `${playerData.firstName} ${rating} `
+            }
+
+            out += ` ${result}`
+
+            //console.log(out)
+        }
+
+        this.updateTeamRatings(team1, rating1, team1Delta, startDate)
+        this.updateTeamRatings(team2, rating2, team2Delta, startDate)
     }
 
-    updateTeamRatings(team, originalRating, delta) {
+    updateTeamRatings(team, originalRating, delta, startDate) {
         for (let playerId of team.players) {
             let ratingData = this.state.playerRatings[playerId]
             let rating = ratingData && ratingData.rating || startingElo
@@ -273,12 +323,21 @@ const topRankingResultsCount = 8
             if (ratingData !== undefined) {
                 ratingData.rating += weight * delta
                 ++ratingData.matchCount
+
+                if (ratingData.rating > ratingData.highestRating) {
+                    ratingData.highestRating = ratingData.rating
+                    ratingData.highestRatingDate = startDate
+                }
             } else {
                 let playerData = MainStore.playerData[playerId]
                 this.state.playerRatings[playerId] = {
                     fullName: playerData.firstName + " " + playerData.lastName,
                     rating: startingElo + weight * delta,
-                    matchCount: 1
+                    matchCount: 1,
+                    highestRating: startingElo + weight * delta,
+                    highestRatingDate: startDate,
+                    highestRank: -1,
+                    highestRankDate: startDate
                 }
             }
         }
@@ -286,16 +345,36 @@ const topRankingResultsCount = 8
 
     calcTeamElo(team) {
         let elo = 0
+        // for (let playerId of team.players) {
+        //     let player = this.state.playerRatings[playerId]
+        //     if (player !== undefined) {
+        //         elo += player.rating
+        //     } else {
+        //         elo += startingElo
+        //     }
+        // }
+
+        // return elo / team.players.length
+
+        let ratings = []
         for (let playerId of team.players) {
             let player = this.state.playerRatings[playerId]
             if (player !== undefined) {
-                elo += player.rating
+                ratings.push(player.rating)
             } else {
-                elo += startingElo
+                ratings.push(startingElo)
             }
         }
 
-        return elo / team.players.length
+        ratings = ratings.sort((a, b) => b - a)
+        let count = 0
+        for (let i = 0; i < ratings.length; ++i) {
+            let weight = i + 1
+            elo += ratings[i] * weight
+            count += weight
+        }
+
+        return elo / count
     }
 
     calcEloMatch(rating1, rating2, result) {
