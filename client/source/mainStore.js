@@ -8,5 +8,6 @@ module.exports = Mobx.observable({
     resultsData: {},
     sortedResultsData: [],
     initCount: 0,
-    isRatingCalcEnabled: true
+    isRatingCalcEnabled: true,
+    rankingTypeNames: []
 })

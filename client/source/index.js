@@ -6,11 +6,13 @@ const ReactDOM = require("react-dom")
 const MobxReact = require("mobx-react")
 
 const MainStore = require("mainStore.js")
+const EnumStore = require("enumStore.js")
 const Common = require("common.js")
 
 require("./index.less")
 
-const globalKFactor = 5
+const openRankingKFactor = 5
+const womenRankingKFactor = 15
 const ratingKFactor = 32
 const startingElo = 400
 const topRankingResultsCount = 8
@@ -19,18 +21,36 @@ const topRankingResultsCount = 8
     constructor() {
         super()
 
+        MainStore.rankingTypeNames[EnumStore.ERankingType.Open] = [
+            "Open",
+            "Open Pairs",
+            "Random Open",
+            "Coop",
+            "Co-op",
+            "Open Co-op",
+            "Mixed",
+            "Mixed Pairs",
+        ]
+        MainStore.rankingTypeNames[EnumStore.ERankingType.Women] = [
+            "Women",
+            "Women Pairs",
+            "Mixed",
+            "Mixed Pairs",
+        ]
+
+        let now = new Date()
+
         this.state = {
             playerRatings: {},
             playerRankings: {},
             startTime: Date.parse("2018-1-1"),
-            endTime: Number.MAX_VALUE
+            endTime: Number.MAX_VALUE,
+            date: `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`,
+            rankingType: EnumStore.ERankingType.Open,
+            rankingData: undefined
         }
 
         Common.downloadPlayerAndEventData()
-
-        //console.log(Common.generatePoolsRankingPointsArray(30, 5))
-        // console.log(Common.generatePoolsRankingPointsArray(20, 9, globalKFactor))
-        // console.log(Common.generatePoolsRankingPointsArray(70, 24, globalKFactor))
     }
 
     getEventWidgets() {
@@ -57,7 +77,9 @@ const topRankingResultsCount = 8
         for (let eventData of sortedEventData) {
             let resultsDataList = MainStore.sortedResultsData.filter((data) => data.eventId === eventData.key)
             for (let resultsData of resultsDataList) {
-                this.calcResultsRanking(resultsData.resultsData)
+                if (MainStore.rankingTypeNames[this.state.rankingType].includes(resultsData.divisionName)) {
+                    this.calcResultsRanking(resultsData)
+                }
             }
         }
 
@@ -66,9 +88,13 @@ const topRankingResultsCount = 8
         for (let playerKey in this.state.playerRankings) {
             let rankingData = this.state.playerRankings[playerKey]
             rankingData.pointsList = rankingData.pointsList.sort((a, b) => {
-                return b - a
+                return b.points - a.points
             })
-            rankingData.points = rankingData.pointsList.slice(0, topRankingResultsCount).reduce((a, b) => a + b)
+            let topRankings = rankingData.pointsList.slice(0, topRankingResultsCount)
+            rankingData.points = 0
+            for (let ranking of topRankings) {
+                rankingData.points += ranking.points
+            }
             sortedRankingList.push(rankingData)
         }
 
@@ -78,8 +104,11 @@ const topRankingResultsCount = 8
 
         let place = 1
         for (let rankingData of sortedRankingList) {
+            rankingData.rank = place
             rankingsString += `${place++}\t${rankingData.fullName}\t${Math.round(rankingData.points)}\t${rankingData.resultsCount}\t${Math.round(rankingData.points / rankingData.resultsCount)}\n`
         }
+
+        this.state.rankingData = sortedRankingList
 
         return rankingsString
     }
@@ -88,7 +117,7 @@ const topRankingResultsCount = 8
         let playerResults = []
 
         let roundIds = []
-        for (let roundId in resultsData) {
+        for (let roundId in resultsData.resultsData) {
             if (roundId.startsWith("round")) {
                 roundIds.push(roundId)
             }
@@ -102,7 +131,7 @@ const topRankingResultsCount = 8
         let hashObj = {}
         let placeCount = 0
         for (let roundId of roundIds) {
-            let roundData = resultsData[roundId]
+            let roundData = resultsData.resultsData[roundId]
             for (let poolId in roundData) {
                 if (poolId.startsWith("pool")) {
                     let poolData = roundData[poolId]
@@ -133,7 +162,8 @@ const topRankingResultsCount = 8
         })
 
         if (playerResults.length > 0) {
-            let pointsArray = Common.generatePoolsRankingPointsArray(playerResults.length, placeCount, globalKFactor)
+            let pointsArray = Common.generatePoolsRankingPointsArray(playerResults.length, placeCount,
+                this.state.rankingType === EnumStore.ERankingType.Open ? openRankingKFactor : womenRankingKFactor)
 
             let pointsArrayIndex = pointsArray.length - 1
             let currentHash = playerResults[0].hash
@@ -146,12 +176,20 @@ const topRankingResultsCount = 8
                 let playerData = MainStore.playerData[player.id]
                 let rankingData = this.state.playerRankings[player.id]
                 if (rankingData !== undefined) {
-                    rankingData.pointsList.push(pointsArray[pointsArrayIndex])
+                    rankingData.pointsList.push({
+                        resultsId: resultsData.key,
+                        points: pointsArray[pointsArrayIndex]
+                    })
                     ++rankingData.resultsCount
-                } else {
+                // eslint-disable-next-line eqeqeq
+                } else if (this.state.rankingType != EnumStore.ERankingType.Women || playerData.gender === "F") {
                     this.state.playerRankings[player.id] = {
+                        id: player.id,
                         fullName: playerData.firstName + " " + playerData.lastName,
-                        pointsList: [ pointsArray[pointsArrayIndex] ],
+                        pointsList: [ {
+                            resultsId: resultsData.key,
+                            points: pointsArray[pointsArrayIndex]
+                        } ],
                         resultsCount: 1
                     }
                 }
@@ -396,6 +434,23 @@ const topRankingResultsCount = 8
         MainStore.isRatingCalcEnabled = true
     }
 
+    onRankingDateChanged(e) {
+        this.state.date = e.target.value
+        this.setState(this.state)
+    }
+
+    uploadRankings() {
+        if (this.state.rankingData !== undefined) {
+            Common.uploadPointsData("UPLOAD_RANKING_DATA", this.state.date, this.state.rankingType === EnumStore.ERankingType.Open ? "open" : "women", "ranking", this.state.rankingData)
+        }
+    }
+
+    rankingTypeChanged(e) {
+        this.state.rankingType = e.target.value
+        this.state.playerRankings = {}
+        this.setState(this.state)
+    }
+
     render() {
         return (
             <div className="topContainer">
@@ -406,10 +461,22 @@ const topRankingResultsCount = 8
                     {this.getEventWidgets()}
                 </div>
                 <div className="resultsContainer">
+                    <label>
+                        Date:
+                        <input value={this.state.date} onChange={(e) => this.onRankingDateChanged(e)}/>
+                    </label>
+                    <label>
+                        Division:
+                        <select value={this.state.rankingType} onChange={(e) => this.rankingTypeChanged(e)}>
+                            <option value={EnumStore.ERankingType.Open}>Open</option>
+                            <option value={EnumStore.ERankingType.Women}>Women</option>
+                        </select>
+                    </label>
                     <h1>
                         Rankings
                     </h1>
-                    <textarea value={this.getRankingsOutput()} cols={50} rows={20} readOnly={true} />
+                    <button onClick={() => this.uploadRankings()}>Upload</button>
+                    <textarea value={this.getRankingsOutput()} cols={70} rows={20} readOnly={true} />
                     <h1>
                         Ratings
                     </h1>

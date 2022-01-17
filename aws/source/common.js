@@ -30,5 +30,4 @@ module.exports.handler = async function(event, context, callback, func) {
 
         callback(failResponse)
     }
-    
 }

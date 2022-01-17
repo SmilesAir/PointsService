@@ -97,11 +97,28 @@ module.exports.getSortedEventData = function(startTime, endTime) {
                 continue
             }
         }
-
         sortedEventData.push(eventData)
     }
 
     return sortedEventData.sort((a, b) => {
         return Date.parse(a.startDate) - Date.parse(b.startDate)
+    })
+}
+
+module.exports.uploadPointsData = function(endpoint, date, divisionName, type, data) {
+    Common.fetchEx(endpoint, {
+        date: date,
+        divisionName: divisionName,
+        type: type
+    }, {}, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    }).then((response) => {
+        console.log(response)
+    }).catch((error) => {
+        console.error(`Failed to upload: ${error}`)
     })
 }

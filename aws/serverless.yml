@@ -1,14 +1,16 @@
 # serverless.yml
-service: StarterProject
+service: points-service
 
 provider:
   name: aws
-  runtime: nodejs8.10
+  runtime: nodejs14.x
   region: us-west-2
   stage: ${opt:stage, "development"}
 
   environment:
-    TEST_TABLE: ${self:provider.stage}-testTable
+    POINTS_MANIFEST_TABLE: ${self:service}-${self:provider.stage}-pointsManifestTable
+    INFO_TABLE: ${self:service}-${self:provider.stage}-infoTable
+    CACHE_BUCKET: ${self:service}-${self:provider.stage}-cache-bucket
 
   iamRoleStatements:
     - Effect: Allow
@@ -18,30 +20,67 @@ provider:
         - dynamodb:PutItem
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
-      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.TEST_TABLE}"
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.POINTS_MANIFEST_TABLE}"
+    - Effect: Allow
+      Action:
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+      Resource: "arn:aws:dynamodb:${opt:region, self:provider.region}:*:table/${self:provider.environment.INFO_TABLE}"
+    - Effect: Allow
+      Action:
+        - s3:PutObject
+        - s3:GetObject
+      Resource: "arn:aws:s3:::${self:provider.environment.CACHE_BUCKET}/*"
 
 functions:
-  testLambda:
-    handler: source/test.handler
+  uploadPointsData:
+    handler: source/main.uploadPointsData
     events:
       - http:
-          path: handler
+          path: uploadPointsData/{date}/divisionName/{divisionName}/type/{type}
           method: post
+          cors: true
+  downloadPointsData:
+    handler: source/main.downloadPointsData
+    events:
+      - http:
+          path: downloadPointsData/{key}
+          method: get
+          cors: true
+  getManifest:
+    handler: source/main.getManifest
+    events:
+      - http:
+          path: getManifest
+          method: get
           cors: true
 
 resources:
   Resources:
-    testTable:
+    pointsManifestTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:provider.environment.TEST_TABLE}
+        TableName: ${self:provider.environment.POINTS_MANIFEST_TABLE}
+        BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: key
             AttributeType: S
         KeySchema:
           - AttributeName: key
             KeyType: HASH
-        ProvisionedThroughput:
-          ReadCapacityUnits: 1
-          WriteCapacityUnits: 1
-
+    infoTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        BillingMode: PAY_PER_REQUEST
+        TableName: ${self:provider.environment.INFO_TABLE}
+        AttributeDefinitions:
+          - AttributeName: key
+            AttributeType: S
+        KeySchema:
+          - AttributeName: key
+            KeyType: HASH
+    cacheBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        AccessControl: Private
+        BucketName: ${self:provider.environment.CACHE_BUCKET}
