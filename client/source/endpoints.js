@@ -4,7 +4,7 @@ let urls = {
     GET_PLAYER_DATA: "https://tkhmiv70u9.execute-api.us-west-2.amazonaws.com/development/getAllPlayers",
     GET_EVENT_DATA: "https://xyf6qhiwi1.execute-api.us-west-2.amazonaws.com/development/getAllEvents",
     GET_RESULTS_DATA: "https://pkbxpw400j.execute-api.us-west-2.amazonaws.com/development/getAllResults",
-    UPLOAD_RANKING_DATA: "https://k7p1y5ntz6.execute-api.us-west-2.amazonaws.com/development/uploadPointsData/<date>/divisionName/<divisionName>/type/<type>"
+    UPLOAD_POINTS_DATA: "https://k7p1y5ntz6.execute-api.us-west-2.amazonaws.com/development/uploadPointsData/<date>/divisionName/<divisionName>/type/<type>"
 }
 
 module.exports.buildUrl = function(key, pathParams, queryParams) {

@@ -11,8 +11,13 @@ const Common = require("common.js")
 
 require("./index.less")
 
-const openRankingKFactor = 5
-const womenRankingKFactor = 15
+const openRankingKFactor = 4
+const womenRankingKFactor = 10
+const rankingMajorBonusPoints = 50
+const rankingWorldsBonusPoints = 100
+const majorNameList = [ "Frisbeer", "European Freestyledisc Championships", "EFC", "AFO", "American Freestyle Championships" ]
+const worldsNameList = [ "FPAW" ]
+
 const ratingKFactor = 32
 const startingElo = 400
 const topRankingResultsCount = 8
@@ -47,7 +52,8 @@ const topRankingResultsCount = 8
             endTime: Number.MAX_VALUE,
             date: `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`,
             rankingType: EnumStore.ERankingType.Open,
-            rankingData: undefined
+            rankingData: undefined,
+            ratingData: undefined
         }
 
         Common.downloadPlayerAndEventData()
@@ -95,6 +101,7 @@ const topRankingResultsCount = 8
             for (let ranking of topRankings) {
                 rankingData.points += ranking.points
             }
+            rankingData.points = Math.round(rankingData.points)
             sortedRankingList.push(rankingData)
         }
 
@@ -102,10 +109,19 @@ const topRankingResultsCount = 8
             return b.points - a.points
         })
 
+        console.log(sortedRankingList[0])
+
         let place = 1
+        let proccsedCount = 0
+        let lastPoints = 0
         for (let rankingData of sortedRankingList) {
+            if (rankingData.points !== lastPoints) {
+                lastPoints = rankingData.points
+                place = proccsedCount + 1
+            }
             rankingData.rank = place
-            rankingsString += `${place++}\t${rankingData.fullName}\t${Math.round(rankingData.points)}\t${rankingData.resultsCount}\t${Math.round(rankingData.points / rankingData.resultsCount)}\n`
+            rankingsString += `${place}\t${rankingData.fullName}\t${Math.round(rankingData.points)}\t${rankingData.resultsCount}\t${Math.round(rankingData.points / rankingData.resultsCount)}\n`
+            ++proccsedCount
         }
 
         this.state.rankingData = sortedRankingList
@@ -162,8 +178,23 @@ const topRankingResultsCount = 8
         })
 
         if (playerResults.length > 0) {
+            let bonusPoints = 0
+            for (let name of majorNameList) {
+                if (resultsData.eventName.includes(name)) {
+                    bonusPoints = rankingMajorBonusPoints
+                    break
+                }
+            }
+            for (let name of worldsNameList) {
+                if (resultsData.eventName.includes(name)) {
+                    bonusPoints = rankingWorldsBonusPoints
+                    break
+                }
+            }
+
             let pointsArray = Common.generatePoolsRankingPointsArray(playerResults.length, placeCount,
-                this.state.rankingType === EnumStore.ERankingType.Open ? openRankingKFactor : womenRankingKFactor)
+                // eslint-disable-next-line eqeqeq
+                this.state.rankingType == EnumStore.ERankingType.Open ? openRankingKFactor : womenRankingKFactor, bonusPoints)
 
             let pointsArrayIndex = pointsArray.length - 1
             let currentHash = playerResults[0].hash
@@ -236,6 +267,8 @@ const topRankingResultsCount = 8
             outText += `${place}.\t${player.fullName}\t${Math.round(player.rating)}\t${player.matchCount}\t${Math.round(player.highestRating)}\t${player.highestRatingDate}\t${player.highestRank}\t${player.highestRankDate}\n`
             ++place
         }
+
+        this.state.ratingData = sortedRatingData
 
         return outText
     }
@@ -441,13 +474,23 @@ const topRankingResultsCount = 8
 
     uploadRankings() {
         if (this.state.rankingData !== undefined) {
-            Common.uploadPointsData("UPLOAD_RANKING_DATA", this.state.date, this.state.rankingType === EnumStore.ERankingType.Open ? "open" : "women", "ranking", this.state.rankingData)
+            // eslint-disable-next-line eqeqeq
+            Common.uploadPointsData("UPLOAD_POINTS_DATA", this.state.date, this.state.rankingType == EnumStore.ERankingType.Open ? "open" : "women", "ranking", this.state.rankingData)
+        }
+    }
+
+    uploadRatings() {
+        if (this.state.ratingData !== undefined) {
+            Common.uploadPointsData("UPLOAD_POINTS_DATA", this.state.date, "open", "rating", this.state.ratingData)
         }
     }
 
     rankingTypeChanged(e) {
         this.state.rankingType = e.target.value
         this.state.playerRankings = {}
+        this.state.playerRatings = {}
+        this.state.rankingData = undefined
+        this.state.ratingData = undefined
         this.setState(this.state)
     }
 
@@ -480,6 +523,7 @@ const topRankingResultsCount = 8
                     <h1>
                         Ratings
                     </h1>
+                    <button onClick={() => this.uploadRatings()}>Upload</button>
                     { MainStore.isRatingCalcEnabled ? null : <button onClick={(e) => this.enableRatings(e)}>Enable Ratings</button> }
                     <textarea value={this.getRatingsOutput()} cols={50} rows={20} readOnly={true} />
                 </div>
