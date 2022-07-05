@@ -76,7 +76,7 @@ module.exports.downloadPlayerAndEventData = function() {
 }
 
 module.exports.generatePoolsRankingPointsArray = function(numPlayers, numPlaces, kFactor, bonus) {
-    let topScore = numPlayers * kFactor + (bonus || 0)
+    let topScore = Math.pow(numPlayers, 1) * kFactor + (bonus || 0)
     let base = Math.pow(topScore, 1 / (numPlaces - 1))
 
     let pointsArray = []

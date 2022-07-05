@@ -56,6 +56,16 @@ const topRankingResultsCount = 8
             ratingData: undefined
         }
 
+        let asdf = [
+            Common.generatePoolsRankingPointsArray(10, 2, openRankingKFactor, 0),
+            Common.generatePoolsRankingPointsArray(20, 2, openRankingKFactor, 0),
+            Common.generatePoolsRankingPointsArray(30, 2, openRankingKFactor, 0),
+            Common.generatePoolsRankingPointsArray(40, 2, openRankingKFactor, 0),
+            Common.generatePoolsRankingPointsArray(50, 2, openRankingKFactor, 0),
+            Common.generatePoolsRankingPointsArray(60, 2, openRankingKFactor, 0),
+        ]
+        console.log(asdf)
+
         Common.downloadPlayerAndEventData()
     }
 
