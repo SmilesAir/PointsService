@@ -47,6 +47,13 @@ functions:
           path: downloadPointsData/{key}
           method: get
           cors: true
+  downloadLatestPointsData:
+    handler: source/main.downloadLatestPointsData
+    events:
+      - http:
+          path: downloadLatestPointsData
+          method: get
+          cors: true
   getManifest:
     handler: source/main.getManifest
     events:

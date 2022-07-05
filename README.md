@@ -1,4 +1,7 @@
-# StarterProject
+# player-name-server
 
-This is a barebones framework for starting a react project with webpack using AWS as the backend
+This is a microservice that manages data associated with players. ie. Name, Country, Gender, FPA Membership Number
 
+Example call: https://jsbin.com/pezakarora/edit?js,console
+
+## Interface

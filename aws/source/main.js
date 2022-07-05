@@ -41,6 +41,41 @@ module.exports.downloadPointsData = (e, c, cb) => { Common.handler(e, c, cb, asy
     }
 })}
 
+module.exports.downloadLatestPointsData = (e, c, cb) => { Common.handler(e, c, cb, async (event, context) => {
+    let manifest = await getManifest()
+    let manifestData = {}
+    for (let key in manifest) {
+        let splits = key.split("_")
+        if (splits.length === 2) {
+            let type = splits[0]
+            if (manifestData[type] === undefined) {
+                manifestData[type] = [ splits[1] ]
+            } else {
+                manifestData[type].push(splits[1])
+            }
+        } else {
+            throw `Can't parse manifest data '${key}'`
+        }
+    }
+
+    let data = {}
+    for (let key in manifestData) {
+        let sortedDates = manifestData[key].sort((a, b) => {
+            return dateFromString(b).getTime() - dateFromString(a).getTime()
+        })
+
+        if (sortedDates.length > 0) {
+            let filename = `${key}_${sortedDates[0]}`
+
+            data[key] = await getPointsData(filename)
+        }
+    }
+
+    return {
+        data: data
+    }
+})}
+
 async function uploadData(date, divisionName, type, data) {
     let key = `${type}-${divisionName}_${date}`
     let dataPath = key + ".json"
@@ -80,6 +115,20 @@ module.exports.getManifest = (e, c, cb) => { Common.handler(e, c, cb, async (eve
         manifest: await getManifest()
     }
 })}
+
+async function getPointsData(key) {
+    let getBucketParams = {
+        Bucket: process.env.CACHE_BUCKET,
+        Key: key + ".json"
+    }
+    return await s3Client.send(new GetObjectCommand(getBucketParams)).then((response) => {
+        return streamToString(response.Body)
+    }).then((dataString) => {
+        return JSON.parse(dataString)
+    }).catch((error) => {
+        throw error
+    })
+}
 
 async function getManifest() {
     let allResults
@@ -168,3 +217,10 @@ const streamToString = (stream) =>
         stream.on("error", reject)
         stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf8")))
 })
+
+function dateFromString(str) {
+    let a = str.split(/[^0-9]/).map((s) => {
+        return parseInt(s, 10)
+    })
+    return new Date(a[0], a[1] - 1 || 0, a[2] || 1, a[3] || 0, a[4] || 0, a[5] || 0, a[6] || 0)
+}
