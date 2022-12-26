@@ -15,6 +15,7 @@
     "main": "source/index.js",
     "scripts": {
         "start": "npm i && codeglue --mode=server --stage=development",
+        "start:production": "npm i && codeglue --mode=server --stage=production",
         "deploy": "aws s3 sync ./builds/web s3://starterproject-development"
     },
     "dependencies": {
