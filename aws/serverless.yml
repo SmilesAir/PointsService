@@ -91,3 +91,32 @@ resources:
       Properties:
         AccessControl: Private
         BucketName: ${self:provider.environment.CACHE_BUCKET}
+    staticSite:
+      Type: AWS::S3::Bucket
+      Properties:
+        AccessControl: PublicRead
+        BucketName: ${self:service}-${self:provider.stage}
+        WebsiteConfiguration:
+          IndexDocument: index.html
+    staticSiteS3BucketPolicy:
+      Type: AWS::S3::BucketPolicy
+      Properties:
+        Bucket:
+          Ref: staticSite
+        PolicyDocument:
+          Statement:
+            - Sid: PublicReadGetObject
+              Effect: Allow
+              Principal: "*"
+              Action:
+              - s3:GetObject
+              Resource:
+                Fn::Join: [
+                  "", [
+                    "arn:aws:s3:::",
+                    {
+                      "Ref": "staticSite"
+                    },
+                    "/*"
+                  ]
+                ]

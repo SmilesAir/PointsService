@@ -16,7 +16,7 @@
     "scripts": {
         "start": "npm i && codeglue --mode=server --stage=development",
         "start:production": "npm i && codeglue --mode=server --stage=production",
-        "deploy": "aws s3 sync ./builds/web s3://starterproject-development"
+        "deploy:production": "aws s3 sync ./builds/web s3://points-service-production"
     },
     "dependencies": {
         "aws-sdk": "2.316.0",

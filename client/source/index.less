@@ -3,6 +3,12 @@ body {
     overscroll-behavior: contain;
 }
 
+textarea {
+    white-space: pre;
+    overflow-wrap: normal;
+    overflow-x: scroll;
+}
+
 .topContainer {
     display: flex;
     flex-direction: row;
@@ -10,6 +16,25 @@ body {
     .resultsContainer {
         display: flex;
         flex-direction: column;
+
+        .ratingButtonsContainer {
+            display: flex;
+            flex-direction: row;
+
+            button {
+                flex-grow: 1;
+            }
+        }
+    }
+
+    .resultsList {
+        display: flex;
+        flex-direction: column;
+
+        .eventWidgetsContainer {
+            height: 45em;
+            overflow-y: scroll;
+        }
     }
 }
 

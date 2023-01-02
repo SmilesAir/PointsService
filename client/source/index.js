@@ -13,12 +13,14 @@ require("./index.less")
 
 const openRankingKFactor = 4
 const womenRankingKFactor = 10
-const rankingMajorBonusPoints = 50
-const rankingWorldsBonusPoints = 100
+const rankingMajorBonusPoints = 100
+const rankingWorldsBonusPoints = 200
 const majorNameList = [ "Frisbeer", "European Freestyledisc Championships", "EFC", "AFO", "American Freestyle Championships" ]
 const worldsNameList = [ "FPAW" ]
 
 const ratingKFactor = 32
+const ratingKFactorMajor = 48
+const ratingKFactorWorlds = 64
 const startingElo = 400
 const topRankingResultsCount = 8
 
@@ -32,11 +34,17 @@ const topRankingResultsCount = 8
             "Random Open",
             "Coop",
             "Co-op",
-            "Open Co-op",
-            "Mixed",
-            "Mixed Pairs",
+            "Open Coop",
+            "Open Co-op"
         ]
         MainStore.rankingTypeNames[EnumStore.ERankingType.Women] = [
+            "Open",
+            "Open Pairs",
+            "Random Open",
+            "Coop",
+            "Co-op",
+            "Open Coop",
+            "Open Co-op",
             "Women",
             "Women Pairs",
             "Mixed",
@@ -48,23 +56,28 @@ const topRankingResultsCount = 8
         this.state = {
             playerRatings: {},
             playerRankings: {},
-            startTime: Date.parse("2018-1-1"),
-            endTime: Number.MAX_VALUE,
+            startTime: `${now.getFullYear() - 2}-${now.getMonth() + 1}-${now.getDate()}`,
+            endTime: `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`,
             date: `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`,
             rankingType: EnumStore.ERankingType.Open,
             rankingData: undefined,
-            ratingData: undefined
+            ratingData: undefined,
+            rankingOutputText: "",
+            ratingOutputText: "",
+            defaultKFactor: ratingKFactor,
+            majorKFactor: ratingKFactorMajor,
+            worldsKFactor: ratingKFactorWorlds
         }
 
-        let asdf = [
-            Common.generatePoolsRankingPointsArray(10, 2, openRankingKFactor, 0),
-            Common.generatePoolsRankingPointsArray(20, 2, openRankingKFactor, 0),
-            Common.generatePoolsRankingPointsArray(30, 2, openRankingKFactor, 0),
-            Common.generatePoolsRankingPointsArray(40, 2, openRankingKFactor, 0),
-            Common.generatePoolsRankingPointsArray(50, 2, openRankingKFactor, 0),
-            Common.generatePoolsRankingPointsArray(60, 2, openRankingKFactor, 0),
-        ]
-        console.log(asdf)
+        // let testKFactorData = [
+        //     Common.generatePoolsRankingPointsArray(10, 2, openRankingKFactor, 0),
+        //     Common.generatePoolsRankingPointsArray(20, 2, openRankingKFactor, 0),
+        //     Common.generatePoolsRankingPointsArray(30, 2, openRankingKFactor, 0),
+        //     Common.generatePoolsRankingPointsArray(40, 2, openRankingKFactor, 0),
+        //     Common.generatePoolsRankingPointsArray(50, 2, openRankingKFactor, 0),
+        //     Common.generatePoolsRankingPointsArray(60, 2, openRankingKFactor, 0),
+        // ]
+        // console.log(testKFactorData)
 
         Common.downloadPlayerAndEventData()
     }
@@ -76,11 +89,11 @@ const topRankingResultsCount = 8
         }
 
         sortedEventData = sortedEventData.sort((a, b) => {
-            return Date.parse(a.startDate) - Date.parse(b.startDate)
+            return Date.parse(b.startDate) - Date.parse(a.startDate)
         })
 
         return sortedEventData.map((data, i) => {
-            return <EventWidget key={i} eventSummaryData={data} />
+            return <EventWidget key={i} eventSummaryData={data} updateCallback={() => this.updateRankingOutput()} />
         })
     }
 
@@ -89,13 +102,10 @@ const topRankingResultsCount = 8
             return ""
         }
 
-        let sortedEventData = Common.getSortedEventData(this.state.startTime, this.state.endTime)
-        for (let eventData of sortedEventData) {
-            let resultsDataList = MainStore.sortedResultsData.filter((data) => data.eventId === eventData.key)
-            for (let resultsData of resultsDataList) {
-                if (MainStore.rankingTypeNames[this.state.rankingType].includes(resultsData.divisionName)) {
-                    this.calcResultsRanking(resultsData)
-                }
+        let resultsDataList = MainStore.sortedResultsData.filter((data) => data.selected)
+        for (let resultsData of resultsDataList) {
+            if (MainStore.rankingTypeNames[this.state.rankingType].includes(resultsData.divisionName)) {
+                this.calcResultsRanking(resultsData)
             }
         }
 
@@ -118,8 +128,6 @@ const topRankingResultsCount = 8
         sortedRankingList = sortedRankingList.sort((a, b) => {
             return b.points - a.points
         })
-
-        console.log(sortedRankingList[0])
 
         let place = 1
         let proccsedCount = 0
@@ -253,7 +261,6 @@ const topRankingResultsCount = 8
         }
 
         let sortedEventData = Common.getSortedEventData()
-        //console.log(JSON.parse(JSON.stringify(sortedEventData)))
 
         for (let eventData of sortedEventData) {
             let resultsDataList = MainStore.sortedResultsData.filter((data) => data.eventId === eventData.key)
@@ -320,6 +327,13 @@ const topRankingResultsCount = 8
             return a.place - b.place
         })
 
+        let kFactor = this.state.defaultKFactor
+        if (worldsNameList.find((eventName) => resultsData.eventName.includes(eventName)) !== undefined) {
+            kFactor = this.state.majorKFactor
+        } else if (majorNameList.find((eventName) => resultsData.eventName.includes(eventName)) !== undefined) {
+            kFactor = this.state.worldsKFactor
+        }
+
         let lastHash = null
         for (let winnerIndex = 0; winnerIndex < teamsData.length; ++winnerIndex) {
             let winner = teamsData[winnerIndex]
@@ -327,7 +341,7 @@ const topRankingResultsCount = 8
                 let loser = teamsData[loserIndex]
                 let isTie = winner.place === loser.place
                 if (!isTie || lastHash !== loser.hash) {
-                    this.calcTeamRating(winner, loser, isTie ? 0 : -1, startDate)
+                    this.calcTeamRating(winner, loser, isTie ? 0 : -1, startDate, kFactor)
                     lastHash = loser.hash
                 }
             }
@@ -352,57 +366,59 @@ const topRankingResultsCount = 8
         }
     }
 
-    calcTeamRating(team1, team2, result, startDate) {
+    calcTeamRating(team1, team2, result, startDate, kFactor) {
         let rating1 = this.calcTeamElo(team1)
         let rating2 = this.calcTeamElo(team2)
 
-        let ratingResults = this.calcEloMatch(rating1, rating2, result)
+        let ratingResults = this.calcEloMatch(rating1, rating2, result, kFactor)
         let team1Delta = ratingResults.rating1 - rating1
         let team2Delta = ratingResults.rating2 - rating2
+        //let clampedDelta = 
 
-        let found = team1.players.find((playerId) => {
-            let playerData = MainStore.playerData[playerId]
-            return playerData.lastName === "Damiano"
-        })
-        if (!found) {
-            found = team2.players.find((playerId) => {
-                let playerData = MainStore.playerData[playerId]
-                return playerData.lastName === "Damiano"
-            })
-        }
-        if (found) {
-            let out = ""
-            for (let playerId of team1.players) {
-                let playerData = MainStore.playerData[playerId]
-                let ratingData = this.state.playerRatings[playerId]
-                let rating = ratingData && ratingData.rating || startingElo
-                out += `${playerData.firstName} ${rating} `
-            }
-            out += " vs  "
-            for (let playerId of team2.players) {
-                let playerData = MainStore.playerData[playerId]
-                let ratingData = this.state.playerRatings[playerId]
-                let rating = ratingData && ratingData.rating || startingElo
-                out += `${playerData.firstName} ${rating} `
-            }
+        // let found = team1.players.find((playerId) => {
+        //     let playerData = MainStore.playerData[playerId]
+        //     return playerData.lastName === "Rimatori"
+        // })
+        // if (!found) {
+        //     found = team2.players.find((playerId) => {
+        //         let playerData = MainStore.playerData[playerId]
+        //         return playerData.lastName === "Rimatori"
+        //     })
+        // }
+        // if (found) {
+        //     let out = ""
+        //     for (let playerId of team1.players) {
+        //         let playerData = MainStore.playerData[playerId]
+        //         let ratingData = this.state.playerRatings[playerId]
+        //         let rating = ratingData && ratingData.rating || startingElo
+        //         out += `${playerData.firstName} ${rating} `
+        //     }
+        //     out += " vs  "
+        //     for (let playerId of team2.players) {
+        //         let playerData = MainStore.playerData[playerId]
+        //         let ratingData = this.state.playerRatings[playerId]
+        //         let rating = ratingData && ratingData.rating || startingElo
+        //         out += `${playerData.firstName} ${rating} `
+        //     }
 
-            out += ` ${result}`
+        //     out += ` ${result}`
 
-            //console.log(out)
-        }
+        //     console.log(out)
+        // }
 
         this.updateTeamRatings(team1, rating1, team1Delta, startDate)
-        this.updateTeamRatings(team2, rating2, team2Delta, startDate)
+        this.updateTeamRatings(team2, rating2, -team1Delta, startDate)
     }
 
     updateTeamRatings(team, originalRating, delta, startDate) {
         for (let playerId of team.players) {
             let ratingData = this.state.playerRatings[playerId]
-            let rating = ratingData && ratingData.rating || startingElo
-            let weight = rating / originalRating / team.players.length
+            // let rating = ratingData && ratingData.rating || startingElo
+            // let weight = rating / originalRating / team.players.length
+            let weight = 1 / team.players.length
 
             if (ratingData !== undefined) {
-                ratingData.rating += weight * delta
+                ratingData.rating = Math.max(1, ratingData.rating + weight * delta)
                 ++ratingData.matchCount
 
                 if (ratingData.rating > ratingData.highestRating) {
@@ -426,39 +442,39 @@ const topRankingResultsCount = 8
 
     calcTeamElo(team) {
         let elo = 0
-        // for (let playerId of team.players) {
-        //     let player = this.state.playerRatings[playerId]
-        //     if (player !== undefined) {
-        //         elo += player.rating
-        //     } else {
-        //         elo += startingElo
-        //     }
-        // }
-
-        // return elo / team.players.length
-
-        let ratings = []
         for (let playerId of team.players) {
             let player = this.state.playerRatings[playerId]
             if (player !== undefined) {
-                ratings.push(player.rating)
+                elo += player.rating
             } else {
-                ratings.push(startingElo)
+                elo += startingElo
             }
         }
 
-        ratings = ratings.sort((a, b) => b - a)
-        let count = 0
-        for (let i = 0; i < ratings.length; ++i) {
-            let weight = i + 1
-            elo += ratings[i] * weight
-            count += weight
-        }
+        return elo / team.players.length
 
-        return elo / count
+        // let ratings = []
+        // for (let playerId of team.players) {
+        //     let player = this.state.playerRatings[playerId]
+        //     if (player !== undefined) {
+        //         ratings.push(player.rating)
+        //     } else {
+        //         ratings.push(startingElo)
+        //     }
+        // }
+
+        // ratings = ratings.sort((a, b) => b - a)
+        // let count = 0
+        // for (let i = 0; i < ratings.length; ++i) {
+        //     let weight = i + 1
+        //     elo += ratings[i] * weight
+        //     count += weight
+        // }
+
+        // return elo / count
     }
 
-    calcEloMatch(rating1, rating2, result) {
+    calcEloMatch(rating1, rating2, result, kFactor) {
         // -1 means player1 won, 1 means player2 won, 0 means draw
         let r1 = Math.pow(10, rating1 / 400)
         let r2 = Math.pow(10, rating2 / 400)
@@ -468,8 +484,8 @@ const topRankingResultsCount = 8
         let s2 = result === 0 ? .5 : result > 0 ? 1 : 0
 
         return {
-            rating1: rating1 + ratingKFactor * (s1 - e1),
-            rating2: rating2 + ratingKFactor * (s2 - e2)
+            rating1: rating1 + kFactor * (s1 - e1),
+            rating2: rating2 + kFactor * (s2 - e2)
         }
     }
 
@@ -495,47 +511,128 @@ const topRankingResultsCount = 8
         }
     }
 
-    rankingTypeChanged(e) {
-        this.state.rankingType = e.target.value
+    clearPointsState() {
         this.state.playerRankings = {}
         this.state.playerRatings = {}
         this.state.rankingData = undefined
         this.state.ratingData = undefined
+
+        this.setState(this.state)
+    }
+
+    rankingTypeChanged(e) {
+        this.state.rankingType = e.target.value
+        this.clearPointsState()
+
+        this.updateRankingOutput()
+    }
+
+    onStartDateChanged(e) {
+        this.state.startTime = e.target.value
+        this.clearPointsState()
+    }
+
+    onEndDateChanged(e) {
+        this.state.endTime = e.target.value
+        this.clearPointsState()
+    }
+
+    selectEventsByDate() {
+        for (let eventId in MainStore.eventData) {
+            let eventData = MainStore.eventData[eventId]
+            if (eventData !== undefined && Date.parse(eventData.startDate) >= Date.parse(this.state.startTime)) {
+                for (let resultsKey in MainStore.sortedResultsData) {
+                    let resultsData = MainStore.sortedResultsData[resultsKey]
+                    if (resultsData.eventId === eventData.key) {
+                        resultsData.selected = true
+                    }
+                }
+            }
+        }
+
+        this.updateRankingOutput()
+    }
+
+    updateRankingOutput() {
+        this.clearPointsState()
+        this.state.rankingOutputText = this.getRankingsOutput()
+        this.setState(this.state)
+    }
+
+    updateRatingsOutput() {
+        this.clearPointsState()
+        this.state.ratingOutputText = this.getRatingsOutput()
+        this.setState(this.state)
+    }
+
+    onDefaultKFactorChanged(e) {
+        this.state.defaultKFactor = e.target.value
+        this.setState(this.state)
+    }
+
+    onMajorKFactorChanged(e) {
+        this.state.majorKFactor = e.target.value
+        this.setState(this.state)
+    }
+
+    onWorldsKFactorChanged(e) {
+        this.state.worldsKFactor = e.target.value
         this.setState(this.state)
     }
 
     render() {
         return (
             <div className="topContainer">
-                <div>
+                <div className="resultsList">
                     <h1>
                         Select Results
                     </h1>
-                    {this.getEventWidgets()}
+                    <label>
+                        Start:
+                        <input value={this.state.startTime} onChange={(e) => this.onStartDateChanged(e)}/>
+                    </label>
+                    <label>
+                        End:
+                        <input value={this.state.endTime} onChange={(e) => this.onEndDateChanged(e)}/>
+                    </label>
+                    <button onClick={(e) => this.selectEventsByDate(e)}>Select</button>
+                    <div className="eventWidgetsContainer">
+                        {this.getEventWidgets()}
+                    </div>
                 </div>
                 <div className="resultsContainer">
-                    <label>
-                        Date:
-                        <input value={this.state.date} onChange={(e) => this.onRankingDateChanged(e)}/>
-                    </label>
-                    <label>
-                        Division:
-                        <select value={this.state.rankingType} onChange={(e) => this.rankingTypeChanged(e)}>
-                            <option value={EnumStore.ERankingType.Open}>Open</option>
-                            <option value={EnumStore.ERankingType.Women}>Women</option>
-                        </select>
-                    </label>
                     <h1>
                         Rankings
                     </h1>
+                    <div>
+                        <label>
+                            Date:
+                            <input value={this.state.date} onChange={(e) => this.onRankingDateChanged(e)}/>
+                        </label>
+                        <label>
+                            Division:
+                            <select value={this.state.rankingType} onChange={(e) => this.rankingTypeChanged(e)}>
+                                <option value={EnumStore.ERankingType.Open}>Open</option>
+                                <option value={EnumStore.ERankingType.Women}>Women</option>
+                            </select>
+                        </label>
+                    </div>
                     <button onClick={() => this.uploadRankings()}>Upload</button>
-                    <textarea value={this.getRankingsOutput()} cols={70} rows={20} readOnly={true} />
+                    <textarea value={this.state.rankingOutputText} cols={70} rows={20} readOnly={true} />
                     <h1>
                         Ratings
                     </h1>
-                    <button onClick={() => this.uploadRatings()}>Upload</button>
+                    <div className="ratingButtonsContainer">
+                        <input type="text" value={this.state.defaultKFactor} onChange={(e) => this.onDefaultKFactorChanged(e)} />
+                        <input type="text" value={this.state.majorKFactor} onChange={(e) => this.onMajorKFactorChanged(e)} />
+                        <input type="text" value={this.state.worldsKFactor} onChange={(e) => this.onWorldsKFactorChanged(e)} />
+                    </div>
+                    <div className="ratingButtonsContainer">
+                        <button onClick={() => this.updateRatingsOutput()}>Calculate</button>
+                        <button onClick={() => this.uploadRatings()}>Upload</button>
+                    </div>
                     { MainStore.isRatingCalcEnabled ? null : <button onClick={(e) => this.enableRatings(e)}>Enable Ratings</button> }
-                    <textarea value={this.getRatingsOutput()} cols={50} rows={20} readOnly={true} />
+                    <textarea value={this.state.ratingOutputText} cols={50} rows={20} readOnly={true} />
                 </div>
             </div>
         )
@@ -547,8 +644,16 @@ const topRankingResultsCount = 8
         super()
 
         this.state = {
-            isExpanded: true
+            isExpanded: true,
         }
+    }
+
+    onSelectedChanged(e, data) {
+        data.selected = !data.selected
+
+        this.setState(this.state)
+
+        this.props.updateCallback()
     }
 
     getResultDataElements() {
@@ -563,7 +668,7 @@ const topRankingResultsCount = 8
         return resultsData.map((data, i) => {
             return (
                 <div key={i} className="resultContainer">
-                    <input type="checkbox" />
+                    <input type="checkbox" checked={data.selected} onChange={(e) => this.onSelectedChanged(e, data)}/>
                     {data.divisionName + " - "}
                     {(new Date(data.createdAt)).toLocaleDateString()}
                 </div>
@@ -583,7 +688,7 @@ const topRankingResultsCount = 8
                 <div className="header">
                     <button onClick={(e) => this.onExpand(e)}>{this.state.isExpanded ? "-" : "+"}</button>
                     <div>
-                        {this.props.eventSummaryData.eventName}
+                        {`${this.props.eventSummaryData.eventName} ${this.props.eventSummaryData.startDate}`}
                     </div>
                 </div>
                 {this.getResultDataElements()}
