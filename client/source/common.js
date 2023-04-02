@@ -122,3 +122,21 @@ module.exports.uploadPointsData = function(endpoint, date, divisionName, type, d
         console.error(`Failed to upload: ${error}`)
     })
 }
+
+module.exports.getOriginalPlayerData = function(playerKey) {
+    let playerData = MainStore.playerData[playerKey]
+    if (playerData === undefined) {
+        return undefined
+    }
+
+    while (playerData.aliasKey !== undefined) {
+        let originalData = MainStore.playerData[playerData.aliasKey]
+        if (originalData === undefined) {
+            break
+        }
+
+        playerData = originalData
+    }
+
+    return playerData
+}

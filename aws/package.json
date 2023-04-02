@@ -8,5 +8,8 @@
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.38.0"
+  },
+  "devDependencies": {
+    "fullstack-serverless": "^0.8.0"
   }
 }

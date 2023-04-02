@@ -222,31 +222,30 @@ const topRankingResultsCount = 8
                     currentHash = player.hash
                 }
 
-                let playerData = MainStore.playerData[player.id]
-                let rankingData = this.state.playerRankings[player.id]
-                if (rankingData !== undefined) {
-                    rankingData.pointsList.push({
-                        resultsId: resultsData.key,
-                        points: pointsArray[pointsArrayIndex]
-                    })
-                    ++rankingData.resultsCount
-                // eslint-disable-next-line eqeqeq
-                } else if (this.state.rankingType != EnumStore.ERankingType.Women || playerData.gender === "F") {
-                    this.state.playerRankings[player.id] = {
-                        id: player.id,
-                        fullName: playerData.firstName + " " + playerData.lastName,
-                        pointsList: [ {
+                let playerData = Common.getOriginalPlayerData(player.id)
+                if (playerData !== undefined) {
+                    let rankingData = this.state.playerRankings[playerData.key]
+                    if (rankingData !== undefined) {
+                        rankingData.pointsList.push({
                             resultsId: resultsData.key,
                             points: pointsArray[pointsArrayIndex]
-                        } ],
-                        resultsCount: 1
+                        })
+                        ++rankingData.resultsCount
+                    // eslint-disable-next-line eqeqeq
+                    } else if (this.state.rankingType != EnumStore.ERankingType.Women || playerData.gender === "F") {
+                        this.state.playerRankings[playerData.key] = {
+                            id: playerData.key,
+                            fullName: playerData.firstName + " " + playerData.lastName,
+                            pointsList: [ {
+                                resultsId: resultsData.key,
+                                points: pointsArray[pointsArrayIndex]
+                            } ],
+                            resultsCount: 1
+                        }
                     }
+                } else {
+                    console.warn(`Couldn't find playerData for ${player.id}`)
                 }
-
-                // if (playerData.lastName === "Korver") {
-                //     let eventData = MainStore.eventData[resultsData.eventId]
-                //     console.log(eventData.eventName, currentHash, pointsArray[pointsArrayIndex])
-                // }
             }
         }
     }
@@ -372,39 +371,6 @@ const topRankingResultsCount = 8
 
         let ratingResults = this.calcEloMatch(rating1, rating2, result, kFactor)
         let team1Delta = ratingResults.rating1 - rating1
-        let team2Delta = ratingResults.rating2 - rating2
-        //let clampedDelta = 
-
-        // let found = team1.players.find((playerId) => {
-        //     let playerData = MainStore.playerData[playerId]
-        //     return playerData.lastName === "Rimatori"
-        // })
-        // if (!found) {
-        //     found = team2.players.find((playerId) => {
-        //         let playerData = MainStore.playerData[playerId]
-        //         return playerData.lastName === "Rimatori"
-        //     })
-        // }
-        // if (found) {
-        //     let out = ""
-        //     for (let playerId of team1.players) {
-        //         let playerData = MainStore.playerData[playerId]
-        //         let ratingData = this.state.playerRatings[playerId]
-        //         let rating = ratingData && ratingData.rating || startingElo
-        //         out += `${playerData.firstName} ${rating} `
-        //     }
-        //     out += " vs  "
-        //     for (let playerId of team2.players) {
-        //         let playerData = MainStore.playerData[playerId]
-        //         let ratingData = this.state.playerRatings[playerId]
-        //         let rating = ratingData && ratingData.rating || startingElo
-        //         out += `${playerData.firstName} ${rating} `
-        //     }
-
-        //     out += ` ${result}`
-
-        //     console.log(out)
-        // }
 
         this.updateTeamRatings(team1, rating1, team1Delta, startDate)
         this.updateTeamRatings(team2, rating2, -team1Delta, startDate)
@@ -426,7 +392,7 @@ const topRankingResultsCount = 8
                     ratingData.highestRatingDate = startDate
                 }
             } else {
-                let playerData = MainStore.playerData[playerId]
+                let playerData = Common.getOriginalPlayerData(playerId)
                 this.state.playerRatings[playerId] = {
                     fullName: playerData.firstName + " " + playerData.lastName,
                     rating: startingElo + weight * delta,
