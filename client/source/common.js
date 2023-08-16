@@ -11,6 +11,23 @@ module.exports.fetchEx = function(key, pathParams, queryParams, options) {
     })
 }
 
+function isValidText(str) {
+    return str !== undefined && str !== null && str.length > 0
+}
+
+module.exports.getDisplayNameFromPlayerData = function(playerData) {
+    let displayName = ""
+    if (isValidText(playerData.firstName) && isValidText(playerData.lastName)) {
+        displayName = playerData.firstName.toLowerCase() + "_" + playerData.lastName.toLowerCase()
+    } else if (isValidText(playerData.firstName)) {
+        displayName = playerData.firstName.toLowerCase()
+    }else if (isValidText(playerData.lastName)) {
+        displayName = playerData.lastName.toLowerCase()
+    }
+
+    return displayName.replaceAll(" ", "_")
+}
+
 module.exports.downloadPlayerAndEventData = function() {
     Common.fetchEx("GET_PLAYER_DATA", {}, {}, {
         method: "GET",
@@ -23,7 +40,7 @@ module.exports.downloadPlayerAndEventData = function() {
         MainStore.cachedDisplayNames = []
         for (let id in MainStore.playerData) {
             let playerData = MainStore.playerData[id]
-            MainStore.cachedDisplayNames.push(playerData.firstName.toLowerCase() + "_" + playerData.lastName.toLowerCase())
+            MainStore.cachedDisplayNames.push(Common.getDisplayNameFromPlayerData(playerData))
         }
 
         ++MainStore.initCount
