@@ -235,7 +235,7 @@ const topRankingResultsCount = 8
                     } else if (this.state.rankingType != EnumStore.ERankingType.Women || playerData.gender === "F") {
                         this.state.playerRankings[playerData.key] = {
                             id: playerData.key,
-                            fullName: playerData.firstName + " " + playerData.lastName,
+                            fullName: Common.getFullNameFromPlayerData(playerData),
                             pointsList: [ {
                                 resultsId: resultsData.key,
                                 points: pointsArray[pointsArrayIndex]
@@ -378,6 +378,10 @@ const topRankingResultsCount = 8
 
     updateTeamRatings(team, originalRating, delta, startDate) {
         for (let playerId of team.players) {
+            if (!Common.isValidGuid(playerId)) {
+                continue
+            }
+
             let ratingData = this.state.playerRatings[playerId]
             // let rating = ratingData && ratingData.rating || startingElo
             // let weight = rating / originalRating / team.players.length
@@ -394,7 +398,7 @@ const topRankingResultsCount = 8
             } else {
                 let playerData = Common.getOriginalPlayerData(playerId)
                 this.state.playerRatings[playerId] = {
-                    fullName: playerData.firstName + " " + playerData.lastName,
+                    fullName: Common.getFullNameFromPlayerData(playerData),
                     rating: startingElo + weight * delta,
                     matchCount: 1,
                     highestRating: startingElo + weight * delta,
@@ -509,7 +513,7 @@ const topRankingResultsCount = 8
             if (eventData !== undefined && Date.parse(eventData.startDate) >= Date.parse(this.state.startTime)) {
                 for (let resultsKey in MainStore.sortedResultsData) {
                     let resultsData = MainStore.sortedResultsData[resultsKey]
-                    if (resultsData.eventId === eventData.key) {
+                    if (resultsData.eventId === eventData.key && resultsData.isHidden !== true) {
                         resultsData.selected = true
                     }
                 }
@@ -622,13 +626,18 @@ const topRankingResultsCount = 8
         this.props.updateCallback()
     }
 
+    hideDivision(data) {
+        data.isHidden = true
+        Common.setDivisionData("SET_EVENT_RESULTS", data)
+    }
+
     getResultDataElements() {
         if (!this.state.isExpanded) {
             return null
         }
 
         let resultsData = MainStore.sortedResultsData.filter((data) => {
-            return data.eventId === this.props.eventSummaryData.key
+            return data.eventId === this.props.eventSummaryData.key && data.isHidden !== true
         })
 
         return resultsData.map((data, i) => {
@@ -637,6 +646,7 @@ const topRankingResultsCount = 8
                     <input type="checkbox" checked={data.selected} onChange={(e) => this.onSelectedChanged(e, data)}/>
                     {data.divisionName + " - "}
                     {(new Date(data.createdAt)).toLocaleDateString()}
+                    <button onClick={() => this.hideDivision(data)}>X</button>
                 </div>
             )
         })

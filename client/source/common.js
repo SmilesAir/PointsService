@@ -28,6 +28,27 @@ module.exports.getDisplayNameFromPlayerData = function(playerData) {
     return displayName.replaceAll(" ", "_")
 }
 
+module.exports.getFullNameFromPlayerData = function(playerData) {
+    let fullName = ""
+    if (isValidText(playerData.firstName) && isValidText(playerData.lastName)) {
+        fullName = playerData.firstName + " " + playerData.lastName
+    } else if (isValidText(playerData.firstName)) {
+        fullName = playerData.firstName
+    }else if (isValidText(playerData.lastName)) {
+        fullName = playerData.lastName
+    }
+
+    return fullName
+}
+
+module.exports.isValidGuid = function(guid) {
+    if (guid === undefined || guid === null || guid.length < 5) {
+        return false
+    }
+
+    return true
+}
+
 module.exports.downloadPlayerAndEventData = function() {
     Common.fetchEx("GET_PLAYER_DATA", {}, {}, {
         method: "GET",
@@ -137,6 +158,23 @@ module.exports.uploadPointsData = function(endpoint, date, divisionName, type, d
         console.log(response)
     }).catch((error) => {
         console.error(`Failed to upload: ${error}`)
+    })
+}
+
+module.exports.setDivisionData = function(endpoint, data) {
+    Common.fetchEx(endpoint, {
+        eventKey: data.eventId,
+        divisionName: data.divisionName,
+    }, {}, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+    }).then((response) => {
+        console.log(response)
+    }).catch((error) => {
+        console.error(`Failed to set division: ${error}`)
     })
 }
 
