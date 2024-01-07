@@ -382,7 +382,10 @@ const topRankingResultsCount = 8
                 continue
             }
 
-            let ratingData = this.state.playerRatings[playerId]
+            let playerData = Common.getOriginalPlayerData(playerId)
+            let originalPlayerId = playerData.key
+
+            let ratingData = this.state.playerRatings[originalPlayerId]
             // let rating = ratingData && ratingData.rating || startingElo
             // let weight = rating / originalRating / team.players.length
             let weight = 1 / team.players.length
@@ -396,8 +399,7 @@ const topRankingResultsCount = 8
                     ratingData.highestRatingDate = startDate
                 }
             } else {
-                let playerData = Common.getOriginalPlayerData(playerId)
-                this.state.playerRatings[playerId] = {
+                this.state.playerRatings[originalPlayerId] = {
                     fullName: Common.getFullNameFromPlayerData(playerData),
                     rating: startingElo + weight * delta,
                     matchCount: 1,
