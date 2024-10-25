@@ -172,10 +172,12 @@ const topRankingResultsCount = 8
                     for (let teamData of poolData.teamData) {
                         for (let playerId of teamData.players) {
                             if (playerResults.find((data) => data.id === playerId) === undefined) {
+                                let playerData = Common.getOriginalPlayerData(playerId)
                                 let result = {
                                     id: playerId,
                                     round: parseInt(roundId.replace("round", ""), 10),
                                     place: teamData.place,
+                                    name: Common.getFullNameFromPlayerData(playerData) // Just for debugging
                                 }
                                 result.hash = result.round * 1000 + result.place
                                 playerResults.push(result)
