@@ -1,3 +1,4 @@
+/* eslint-disable no-alert */
 "use strict"
 
 const MainStore = require("mainStore.js")
@@ -49,6 +50,47 @@ module.exports.isValidGuid = function(guid) {
     return true
 }
 
+function checkAliasErrors() {
+    let loopErrors = findPlayerAliasLoops()
+    if (loopErrors.length > 0) {
+        let message = "Alias Loops Found.\nGo to Names tab to fix before continuing:\n\n"
+        for (let loop of loopErrors) {
+            let line = ""
+            for (let player of loop) {
+                line += player.key + ": " + player.firstName + " " + player.lastName + " -> "
+            }
+            message += line.slice(0, line.length - 4) + "\n\n"
+        }
+
+        alert(message)
+
+        return false
+    }
+
+    return true
+}
+
+function findPlayerAliasLoops() {
+    let loops = []
+    for (let playerKey in MainStore.playerData) {
+        let player = MainStore.playerData[playerKey]
+        let path = []
+        let history = {}
+        let current = player
+        while (current !== undefined && current.aliasKey !== undefined) {
+            if (history[current.key] !== undefined) {
+                loops.push(path)
+                break
+            }
+
+            path.push(current)
+            history[current.key] = 1
+            current = MainStore.playerData[current.aliasKey]
+        }
+    }
+    return loops
+}
+
 module.exports.downloadPlayerAndEventData = function() {
     Common.fetchEx("GET_PLAYER_DATA", {}, {}, {
         method: "GET",
@@ -57,6 +99,10 @@ module.exports.downloadPlayerAndEventData = function() {
         }
     }).then((data) => {
         MainStore.playerData = data.players
+
+        if (!checkAliasErrors()) {
+            return
+        }
 
         MainStore.cachedDisplayNames = []
         for (let id in MainStore.playerData) {
