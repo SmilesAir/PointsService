@@ -173,18 +173,20 @@ const topRankingResultsCount = 8
                         for (let playerId of teamData.players) {
                             if (playerResults.find((data) => data.id === playerId) === undefined) {
                                 let playerData = Common.getOriginalPlayerData(playerId)
-                                let result = {
-                                    id: playerId,
-                                    round: parseInt(roundId.replace("round", ""), 10),
-                                    place: teamData.place,
-                                    name: Common.getFullNameFromPlayerData(playerData) // Just for debugging
-                                }
-                                result.hash = result.round * 1000 + result.place
-                                playerResults.push(result)
+                                if (playerData !== undefined) {
+                                    let result = {
+                                        id: playerId,
+                                        round: parseInt(roundId.replace("round", ""), 10),
+                                        place: teamData.place,
+                                        name: Common.getFullNameFromPlayerData(playerData) // Just for debugging
+                                    }
+                                    result.hash = result.round * 1000 + result.place
+                                    playerResults.push(result)
 
-                                if (hashObj[result.hash] === undefined) {
-                                    hashObj[result.hash] = result.hash
-                                    ++placeCount
+                                    if (hashObj[result.hash] === undefined) {
+                                        hashObj[result.hash] = result.hash
+                                        ++placeCount
+                                    }
                                 }
                             }
                         }
@@ -416,16 +418,22 @@ const topRankingResultsCount = 8
 
     calcTeamElo(team) {
         let elo = 0
+        let numPlayers = 0
         for (let playerId of team.players) {
-            let player = this.state.playerRatings[playerId]
-            if (player !== undefined) {
-                elo += player.rating
-            } else {
-                elo += startingElo
+            let playerData = Common.getOriginalPlayerData(playerId)
+            if (playerData !== undefined) {
+                let player = this.state.playerRatings[playerData.key]
+                if (player !== undefined) {
+                    elo += player.rating
+                } else {
+                    elo += startingElo
+                }
+
+                ++numPlayers
             }
         }
 
-        return elo / team.players.length
+        return elo / numPlayers
 
         // let ratings = []
         // for (let playerId of team.players) {
